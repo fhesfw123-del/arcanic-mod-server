@@ -7,30 +7,22 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Пароль для доступа к загрузке модов
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'fhesfwroot'; // Измени пароль здесь или через переменную окружения
-
-// Папки для хранения модов
 const MODS_DIR = path.join(__dirname, 'mods');
 const VERSIONS_FILE = path.join(__dirname, 'versions.json');
 
-// Создаём папку для модов если её нет
 if (!fs.existsSync(MODS_DIR)) {
   fs.mkdirSync(MODS_DIR, { recursive: true });
 }
 
-// Инициализируем файл версий если его нет
 if (!fs.existsSync(VERSIONS_FILE)) {
   fs.writeFileSync(VERSIONS_FILE, JSON.stringify({}, null, 2));
 }
 
-// Настройка multer для загрузки файлов
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, MODS_DIR);
   },
   filename: (req, file, cb) => {
-    // Сохраняем оригинальное имя файла
     cb(null, file.originalname);
   }
 });
@@ -50,18 +42,6 @@ app.use(cors());
 app.use(express.json());
 app.use('/mods', express.static(MODS_DIR));
 
-// Middleware для проверки пароля
-function checkPassword(req, res, next) {
-  const password = req.body.password || req.headers['x-admin-password'];
-
-  if (password === ADMIN_PASSWORD) {
-    next();
-  } else {
-    res.status(401).json({ error: 'Неверный пароль' });
-  }
-}
-
-// Главная страница для загрузки модов
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -89,30 +69,11 @@ app.get('/', (req, res) => {
           max-width: 600px;
           width: 100%;
         }
-        h1 {
-          color: #333;
-          margin-bottom: 10px;
-          font-size: 28px;
-        }
-        p {
-          color: #666;
-          margin-bottom: 30px;
-        }
-        .upload-form {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        label {
-          font-weight: 600;
-          color: #333;
-          font-size: 14px;
-        }
+        h1 { color: #333; margin-bottom: 10px; font-size: 28px; }
+        p { color: #666; margin-bottom: 30px; }
+        .upload-form { display: flex; flex-direction: column; gap: 20px; }
+        .form-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-weight: 600; color: #333; font-size: 14px; }
         input[type="text"], input[type="file"] {
           padding: 12px;
           border: 2px solid #e0e0e0;
@@ -135,23 +96,35 @@ app.get('/', (req, res) => {
           cursor: pointer;
           transition: transform 0.2s, box-shadow 0.2s;
         }
-        button:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
+        button:active { transform: translateY(0); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .progress-container {
+          display: none;
+          margin-top: 20px;
         }
-        button:active {
-          transform: translateY(0);
+        .progress-bar {
+          width: 100%;
+          height: 30px;
+          background: #e0e0e0;
+          border-radius: 15px;
+          overflow: hidden;
+          position: relative;
         }
-        .mods-list {
-          margin-top: 40px;
-          border-top: 2px solid #e0e0e0;
-          padding-top: 30px;
+        .progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+          width: 0%;
+          transition: width 0.3s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-weight: 600;
+          font-size: 14px;
         }
-        .mods-list h2 {
-          color: #333;
-          margin-bottom: 20px;
-          font-size: 22px;
-        }
+        .mods-list { margin-top: 40px; border-top: 2px solid #e0e0e0; padding-top: 30px; }
+        .mods-list h2 { color: #333; margin-bottom: 20px; font-size: 22px; }
         .mod-item {
           background: #f8f9fa;
           padding: 15px;
@@ -161,19 +134,9 @@ app.get('/', (req, res) => {
           justify-content: space-between;
           align-items: center;
         }
-        .mod-info {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-        }
-        .mod-name {
-          font-weight: 600;
-          color: #333;
-        }
-        .mod-version {
-          color: #666;
-          font-size: 14px;
-        }
+        .mod-info { display: flex; flex-direction: column; gap: 5px; }
+        .mod-name { font-weight: 600; color: #333; }
+        .mod-version { color: #666; font-size: 14px; }
         .mod-delete {
           background: #dc3545;
           color: white;
@@ -183,25 +146,15 @@ app.get('/', (req, res) => {
           cursor: pointer;
           font-size: 14px;
         }
-        .mod-delete:hover {
-          background: #c82333;
-        }
+        .mod-delete:hover { background: #c82333; }
         .message {
           padding: 12px;
           border-radius: 8px;
           margin-top: 20px;
           display: none;
         }
-        .message.success {
-          background: #d4edda;
-          color: #155724;
-          border: 1px solid #c3e6cb;
-        }
-        .message.error {
-          background: #f8d7da;
-          color: #721c24;
-          border: 1px solid #f5c6cb;
-        }
+        .message.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .message.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
       </style>
     </head>
     <body>
@@ -209,12 +162,7 @@ app.get('/', (req, res) => {
         <h1>🎮 Arcanic Mod Update Server</h1>
         <p>Загрузите новую версию мода для автоматического обновления в лаунчере</p>
 
-        <form class="upload-form" onsubmit="uploadMod(event)">
-          <div class="form-group">
-            <label for="password">🔒 Пароль администратора</label>
-            <input type="password" id="password" required placeholder="Введите пароль">
-          </div>
-
+        <form class="upload-form" onsubmit="uploadMod(event)" id="uploadForm">
           <div class="form-group">
             <label for="modName">Название мода (латиницей)</label>
             <input type="text" id="modName" required placeholder="arcanic-visuals">
@@ -230,8 +178,14 @@ app.get('/', (req, res) => {
             <input type="file" id="file" accept=".jar" required>
           </div>
 
-          <button type="submit">📦 Загрузить обновление</button>
+          <button type="submit" id="uploadBtn">📦 Загрузить обновление</button>
         </form>
+
+        <div class="progress-container" id="progressContainer">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill">0%</div>
+          </div>
+        </div>
 
         <div class="message" id="message"></div>
 
@@ -270,7 +224,6 @@ app.get('/', (req, res) => {
         async function uploadMod(e) {
           e.preventDefault();
 
-          const password = document.getElementById('password').value;
           const modName = document.getElementById('modName').value;
           const version = document.getElementById('version').value;
           const file = document.getElementById('file').files[0];
@@ -279,30 +232,57 @@ app.get('/', (req, res) => {
           formData.append('mod', file);
           formData.append('modName', modName);
           formData.append('version', version);
-          formData.append('password', password);
 
           const message = document.getElementById('message');
+          const progressContainer = document.getElementById('progressContainer');
+          const progressFill = document.getElementById('progressFill');
+          const uploadBtn = document.getElementById('uploadBtn');
+
           message.style.display = 'none';
+          progressContainer.style.display = 'block';
+          uploadBtn.disabled = true;
 
           try {
-            const res = await fetch('/api/upload', {
-              method: 'POST',
-              body: formData
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', (event) => {
+              if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded / event.total) * 100);
+                progressFill.style.width = percentComplete + '%';
+                progressFill.textContent = percentComplete + '%';
+              }
             });
 
-            const result = await res.json();
+            xhr.addEventListener('load', () => {
+              progressContainer.style.display = 'none';
+              uploadBtn.disabled = false;
 
-            if (res.ok) {
-              message.className = 'message success';
-              message.textContent = '✅ ' + result.message;
+              if (xhr.status === 200) {
+                const result = JSON.parse(xhr.responseText);
+                message.className = 'message success';
+                message.textContent = '✅ ' + result.message;
+                message.style.display = 'block';
+                document.getElementById('uploadForm').reset();
+                loadMods();
+              } else {
+                const result = JSON.parse(xhr.responseText);
+                throw new Error(result.error);
+              }
+            });
+
+            xhr.addEventListener('error', () => {
+              progressContainer.style.display = 'none';
+              uploadBtn.disabled = false;
+              message.className = 'message error';
+              message.textContent = '❌ Ошибка сети';
               message.style.display = 'block';
+            });
 
-              e.target.reset();
-              loadMods();
-            } else {
-              throw new Error(result.error);
-            }
+            xhr.open('POST', '/api/upload');
+            xhr.send(formData);
           } catch (err) {
+            progressContainer.style.display = 'none';
+            uploadBtn.disabled = false;
             message.className = 'message error';
             message.textContent = '❌ ' + err.message;
             message.style.display = 'block';
@@ -310,19 +290,10 @@ app.get('/', (req, res) => {
         }
 
         async function deleteMod(name) {
-          const password = prompt('Введите пароль администратора для удаления:');
-          if (!password) return;
-
           if (!confirm(\`Удалить мод \${name}?\`)) return;
 
           try {
-            const res = await fetch(\`/api/delete/\${name}\`, {
-              method: 'DELETE',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ password })
-            });
+            const res = await fetch(\`/api/delete/\${name}\`, { method: 'DELETE' });
             const result = await res.json();
 
             if (res.ok) {
@@ -342,7 +313,6 @@ app.get('/', (req, res) => {
   `);
 });
 
-// API для получения списка версий
 app.get('/api/versions', (req, res) => {
   try {
     const versions = JSON.parse(fs.readFileSync(VERSIONS_FILE, 'utf8'));
@@ -352,8 +322,7 @@ app.get('/api/versions', (req, res) => {
   }
 });
 
-// API для загрузки мода
-app.post('/api/upload', upload.single('mod'), checkPassword, (req, res) => {
+app.post('/api/upload', upload.single('mod'), (req, res) => {
   try {
     const { modName, version } = req.body;
     const file = req.file;
@@ -362,10 +331,8 @@ app.post('/api/upload', upload.single('mod'), checkPassword, (req, res) => {
       return res.status(400).json({ error: 'Не все поля заполнены' });
     }
 
-    // Читаем текущие версии
     const versions = JSON.parse(fs.readFileSync(VERSIONS_FILE, 'utf8'));
 
-    // Обновляем информацию о моде
     versions[modName] = {
       version: version,
       filename: file.filename,
@@ -373,7 +340,6 @@ app.post('/api/upload', upload.single('mod'), checkPassword, (req, res) => {
       date: new Date().toLocaleString('ru-RU')
     };
 
-    // Сохраняем обновлённые версии
     fs.writeFileSync(VERSIONS_FILE, JSON.stringify(versions, null, 2));
 
     res.json({
@@ -386,28 +352,23 @@ app.post('/api/upload', upload.single('mod'), checkPassword, (req, res) => {
   }
 });
 
-// API для удаления мода
-app.delete('/api/delete/:modName', checkPassword, (req, res) => {
+app.delete('/api/delete/:modName', (req, res) => {
   try {
     const { modName } = req.params;
 
-    // Читаем текущие версии
     const versions = JSON.parse(fs.readFileSync(VERSIONS_FILE, 'utf8'));
 
     if (!versions[modName]) {
       return res.status(404).json({ error: 'Мод не найден' });
     }
 
-    // Удаляем файл мода
     const modPath = path.join(MODS_DIR, versions[modName].filename);
     if (fs.existsSync(modPath)) {
       fs.unlinkSync(modPath);
     }
 
-    // Удаляем из списка версий
     delete versions[modName];
 
-    // Сохраняем обновлённые версии
     fs.writeFileSync(VERSIONS_FILE, JSON.stringify(versions, null, 2));
 
     res.json({ message: `Мод ${modName} успешно удалён` });
