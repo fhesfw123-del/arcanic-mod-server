@@ -7,6 +7,9 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Пароль для доступа к загрузке модов
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'fhesfwroot'; // Измени пароль здесь или через переменную окружения
+
 // Папки для хранения модов
 const MODS_DIR = path.join(__dirname, 'mods');
 const VERSIONS_FILE = path.join(__dirname, 'versions.json');
@@ -46,6 +49,17 @@ const upload = multer({
 app.use(cors());
 app.use(express.json());
 app.use('/mods', express.static(MODS_DIR));
+
+// Middleware для проверки пароля
+function checkPassword(req, res, next) {
+  const password = req.body.password || req.headers['x-admin-password'];
+
+  if (password === ADMIN_PASSWORD) {
+    next();
+  } else {
+    res.status(401).json({ error: 'Неверный пароль' });
+  }
+}
 
 // Главная страница для загрузки модов
 app.get('/', (req, res) => {
@@ -197,6 +211,11 @@ app.get('/', (req, res) => {
 
         <form class="upload-form" onsubmit="uploadMod(event)">
           <div class="form-group">
+            <label for="password">🔒 Пароль администратора</label>
+            <input type="password" id="password" required placeholder="Введите пароль">
+          </div>
+
+          <div class="form-group">
             <label for="modName">Название мода (латиницей)</label>
             <input type="text" id="modName" required placeholder="arcanic-visuals">
           </div>
@@ -251,6 +270,7 @@ app.get('/', (req, res) => {
         async function uploadMod(e) {
           e.preventDefault();
 
+          const password = document.getElementById('password').value;
           const modName = document.getElementById('modName').value;
           const version = document.getElementById('version').value;
           const file = document.getElementById('file').files[0];
@@ -259,6 +279,7 @@ app.get('/', (req, res) => {
           formData.append('mod', file);
           formData.append('modName', modName);
           formData.append('version', version);
+          formData.append('password', password);
 
           const message = document.getElementById('message');
           message.style.display = 'none';
@@ -289,10 +310,19 @@ app.get('/', (req, res) => {
         }
 
         async function deleteMod(name) {
+          const password = prompt('Введите пароль администратора для удаления:');
+          if (!password) return;
+
           if (!confirm(\`Удалить мод \${name}?\`)) return;
 
           try {
-            const res = await fetch(\`/api/delete/\${name}\`, { method: 'DELETE' });
+            const res = await fetch(\`/api/delete/\${name}\`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ password })
+            });
             const result = await res.json();
 
             if (res.ok) {
@@ -323,7 +353,7 @@ app.get('/api/versions', (req, res) => {
 });
 
 // API для загрузки мода
-app.post('/api/upload', upload.single('mod'), (req, res) => {
+app.post('/api/upload', upload.single('mod'), checkPassword, (req, res) => {
   try {
     const { modName, version } = req.body;
     const file = req.file;
@@ -357,7 +387,7 @@ app.post('/api/upload', upload.single('mod'), (req, res) => {
 });
 
 // API для удаления мода
-app.delete('/api/delete/:modName', (req, res) => {
+app.delete('/api/delete/:modName', checkPassword, (req, res) => {
   try {
     const { modName } = req.params;
 
