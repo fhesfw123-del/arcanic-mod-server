@@ -7,6 +7,9 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Имя мода зафиксировано: лаунчер ищет обновления именно под ним
+const MOD_NAME = 'flehkavisuals';
+
 const MODS_DIR = path.join(__dirname, 'mods');
 const VERSIONS_FILE = path.join(__dirname, 'versions.json');
 
@@ -165,7 +168,7 @@ app.get('/', (req, res) => {
         <form class="upload-form" onsubmit="uploadMod(event)" id="uploadForm">
           <div class="form-group">
             <label for="modName">Название мода (латиницей)</label>
-            <input type="text" id="modName" required placeholder="arcanic-visuals">
+            <input type="text" id="modName" value="flehkavisuals" readonly style="background:#f0f0f0;color:#666;cursor:not-allowed">
           </div>
 
           <div class="form-group">
@@ -224,7 +227,7 @@ app.get('/', (req, res) => {
         async function uploadMod(e) {
           e.preventDefault();
 
-          const modName = document.getElementById('modName').value;
+          const modName = 'flehkavisuals';
           const version = document.getElementById('version').value;
           const file = document.getElementById('file').files[0];
 
@@ -324,14 +327,20 @@ app.get('/api/versions', (req, res) => {
 
 app.post('/api/upload', upload.single('mod'), (req, res) => {
   try {
-    const { modName, version } = req.body;
+    const { version } = req.body;
+    const modName = MOD_NAME;
     const file = req.file;
 
-    if (!modName || !version || !file) {
+    if (!version || !file) {
       return res.status(400).json({ error: 'Не все поля заполнены' });
     }
 
     const versions = JSON.parse(fs.readFileSync(VERSIONS_FILE, 'utf8'));
+
+    const old = versions[modName];
+    if (old && old.filename !== file.filename) {
+      try { fs.unlinkSync(path.join(MODS_DIR, old.filename)); } catch (e) {}
+    }
 
     versions[modName] = {
       version: version,
